@@ -34,7 +34,7 @@ def start(num_nodes, admin, password):
         node_ip = '173.19.0.{}'.format(node_num)
         node_dir = 'node{}'.format(node_num)
         container_name = 'couchdb' + node_dir
-        nodes.append(util.node(node_dir, node_ip, node_num, container_name))
+        nodes.append(util.node(node_dir, node_ip, container_name))
 
         try:
             container_id = subprocess.check_output(DOCKER_FIND_NODE.format(node_name=container_name), shell=True)
@@ -45,19 +45,19 @@ def start(num_nodes, admin, password):
             pass  # Ignore exceptions for now.
 
     for node in nodes:
-        node_dir_path, node_config_path = make_node_config(node.dir, node.ip, node.num)
+        node_dir_path, node_config_path = make_node_config(node.dir, node.ip, node.name)
         start_cmd = DOCKER_START_NODE.format(cluster_network=DOCKER_NETWORK,
                                              node_ip=node.ip,
                                              node_dir=node_dir_path,
                                              node_etc_dir=node_config_path,
-                                             node_name=node.container_name)
+                                             node_name=node.name)
         print start_cmd
         subprocess.check_output(start_cmd, shell=True)
 
         print ("Initializing node")
         initial_configuration(node.ip)
-        create_admin_user(node.num, node.ip, admin, "admin", password)
-        advanced_configuration(node.num, node.ip, admin, password, "admin")
+        create_admin_user(node.name, node.ip, admin, "admin", password)
+        advanced_configuration(node.name, node.ip, admin, password, "admin")
 
     master_node_ip = nodes[0]
     print ("Enabling cluster")
@@ -80,13 +80,11 @@ def add_nodes_to_cluster(master_node_ip, node_ips, admin, password):
                                                 "host": ip,
                                                 "username": admin,
                                                 "password": password
-                                                # "bind_address": "0.0.0.0",
-                                                # "port": 5984
                                                 })
         print (response.text)
 
 
-def make_node_config(node_dir, node_ip, node_num):
+def make_node_config(node_dir, node_ip, name):
     config_path = os.path.abspath(os.path.join(os.curdir, 'config'))
     node_dir_path = os.path.abspath(os.path.join(os.curdir, node_dir))
     if os.path.exists(node_dir_path):
@@ -97,7 +95,7 @@ def make_node_config(node_dir, node_ip, node_num):
     shutil.copytree(config_path, node_config_path)
     with open(os.path.join(node_config_path, 'vm.args'), 'r+') as f:
         vm_config = f.read()
-        vm_config = vm_config.replace('{{node_name}}', '-name couchdbnode{}@{}'.format(node_num, node_ip))
+        vm_config = vm_config.replace('{{node_name}}', '-name {}@{}'.format(name, node_ip))
         f.seek(0)
         f.write(vm_config)
         f.truncate()
@@ -123,8 +121,6 @@ def enable_cluster(master_node_ip, admin, password):
 
 @retry(stop_max_attempt_number=20, wait_fixed=2000)
 def initial_configuration(node_ip):
-    # import ipdb
-    # ipdb.set_trace()
     put_or_raise(url=BASE_NODE_URL.format(ip=node_ip, db='_users'))
     put_or_raise(url=BASE_NODE_URL.format(ip=node_ip, db='_replicator'))
     put_or_raise(url=BASE_NODE_URL.format(ip=node_ip, db='_global_changes'))
@@ -132,38 +128,18 @@ def initial_configuration(node_ip):
 
 
 @retry(stop_max_attempt_number=5, wait_fixed=2000)
-def create_admin_user(node_num, node_ip, admin, user, password):
+def create_admin_user(name, node_ip, admin, user, password):
     # Setup admin user
-    print('{} {} '.format(user, password))
-
-    # From Fauxton
-    # http://173.19.0.2:5984/_node/couchdbnode2@173.19.0.2/_config/admins/admin
-    url = 'http://{}:5984/_node/couchdbnode{}@{}/_config/admins/{}'.format(node_ip, node_num, node_ip, user)
+    url = 'http://{}:5984/_node/{}@{}/_config/admins/{}'.format(node_ip, name, node_ip, user)
     put_or_raise(url, json=password)
-    #
-    # put_or_raise(
-    #     url=NODE_URL.format(ip=node_ip,
-    #                         slug='_nodes/couchdbnode{}@{}/_config/admins/{}'.format(node_num, node_ip, user)),
-    #     json=password)
 
 
 @retry(stop_max_attempt_number=5, wait_fixed=2000)
-def advanced_configuration(node_num, node_ip, admin, password, user):
-    # import ipdb
-    # ipdb.set_trace()
-
+def advanced_configuration(name, node_ip, admin, password, user):
     # Bind to external/ docker container address
-    #  curl -XPUT http://admin:password@173.19.0.2:5984/_node/couchdbnode2@173.19.0.2/_config/chttpd/bind_address -d "0.0.0.0""'
-    url = 'http://{}:{}@{}:5984/_node/couchdbnode{}@{}/_config/chttpd/bind_address'.format(admin, password, node_ip,
-                                                                                           node_num, node_ip)
+    url = 'http://{}:{}@{}:5984/_node/{}@{}/_config/chttpd/bind_address'.format(admin, password, node_ip,
+                                                                                name, node_ip)
     put_or_raise(url, json='0.0.0.0')
-    # put_or_raise(
-    #     url=SECURED_NODE_URL.format(user=admin,
-    #                                 password=password,
-    #                                 ip=node_ip,
-    #                                 slug='_node/couchdb@{}/_config/chttpd/bind_address'.format(node_ip)),
-    #     json='0.0.0.0')
-    # # requests.put(url='http://{ip}:5986/{db}'.format(ip=node_ip, db='_config/admins/{user}'.format(user=user)), data=password)
 
 
 def put_or_raise(url, json=None):
