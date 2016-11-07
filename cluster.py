@@ -10,8 +10,8 @@ import util
 
 DOCKER_NETWORK = 'couchdb2_cluster_network'
 DOCKER_CREATE_NETWORK = 'docker network create --subnet=173.19.0.0/16 {}'.format(DOCKER_NETWORK)
-DOCKER_START_NODE = 'docker run --net {cluster_network} --ip="{node_ip}" -v {node_dir}:/opt/couchdb/data -d ' \
-                    '-v {node_etc_dir}:/opt/couchdb/etc --name="{node_name}" dev-docker.points.com:80/couchdb2:2.0.0'
+DOCKER_START_NODE = 'docker run --net {cluster_network} --ip="{node_ip}" -v {node_data_dir}:/opt/couchdb/data -d ' \
+                    '-v {node_config_dir}:/opt/couchdb/etc --name="{node_name}" docker-couchdb-2:1.0.0'
 DOCKER_FIND_NODE = 'docker ps --filter "name={node_name}" -qa'
 BASE_NODE_URL = 'http://{ip}:5984/{db}'
 NODE_URL = 'http://{ip}:5984/{slug}'
@@ -45,11 +45,11 @@ def start(num_nodes, admin, password):
         except:
             pass  # Ignore exceptions for now.
     for node in nodes:
-        node_dir_path, node_config_path = make_node_config(node.dir, node.ip, node.name)
+        data_dir_path, node_config_path = make_node_config(node.dir, node.ip, node.name)
         start_cmd = DOCKER_START_NODE.format(cluster_network=DOCKER_NETWORK,
                                              node_ip=node.ip,
-                                             node_dir=node_dir_path,
-                                             node_etc_dir=node_config_path,
+                                             node_data_dir=data_dir_path,
+                                             node_config_dir=node_config_path,
                                              node_name=node.name)
         print start_cmd
         subprocess.check_output(start_cmd, shell=True)
@@ -84,15 +84,17 @@ def add_nodes_to_cluster(master_node_ip, node_ips, admin, password):
 
 
 def make_node_config(node_dir, node_ip, name):
-    config_path = os.path.abspath(os.path.join(os.curdir, 'config'))
-    node_dir_path = os.path.abspath(os.path.join(os.curdir, node_dir))
-    if os.path.exists(node_dir_path):
+    local_config_path = os.path.abspath(os.path.join(os.curdir, 'config'))
+    data_dir_path = os.path.abspath(os.path.join(os.curdir, node_dir, 'data'))
+    node_config_path = os.path.abspath(os.path.join(node_dir, 'local.d'))
+    if os.path.exists(data_dir_path) or os.path.exists(node_config_path):
         cmd = 'docker run -v {}:/node_dir --entrypoint="/bin/sh" --rm alpine -c "rm -rf /node_dir/{}" '.format(
             os.path.abspath(os.curdir), node_dir)
         print('Removing existing node config. {}'.format(cmd))
         subprocess.check_output(cmd, shell=True)
-    node_config_path = os.path.abspath(os.path.join(node_dir_path, 'config'))
-    shutil.copytree(config_path, node_config_path)
+    # import ipdb
+    # ipdb.set_trace()
+    shutil.copytree(local_config_path, node_config_path)
     with open(os.path.join(node_config_path, 'vm.args'), 'r+') as f:
         vm_config = f.read()
         vm_config = vm_config.replace('{{node_name}}', '-name {}@{}'.format(name, node_ip))
@@ -100,7 +102,7 @@ def make_node_config(node_dir, node_ip, name):
         f.write(vm_config)
         f.truncate()
 
-    return node_dir_path, node_config_path
+    return data_dir_path, node_config_path
 
 
 def enable_cluster(master_node_ip, admin, password):
