@@ -119,17 +119,17 @@ def enable_cluster(master_node_ip, admin, password):
 
 @retry(stop_max_attempt_number=20, wait_fixed=2000)
 def initial_configuration(node_ip):
-    put_or_raise(url=BASE_NODE_URL.format(ip=node_ip, db='_users'), msg='Node setup.')
-    put_or_raise(url=BASE_NODE_URL.format(ip=node_ip, db='_replicator'), msg='Node setup.')
-    put_or_raise(url=BASE_NODE_URL.format(ip=node_ip, db='_global_changes'), msg='Node setup.')
-    put_or_raise(url=BASE_NODE_URL.format(ip=node_ip, db='_metadata'), msg='Node setup.')
+    request_or_raise(url=BASE_NODE_URL.format(ip=node_ip, db='_users'), msg='Node setup.')
+    request_or_raise(url=BASE_NODE_URL.format(ip=node_ip, db='_replicator'), msg='Node setup.')
+    request_or_raise(url=BASE_NODE_URL.format(ip=node_ip, db='_global_changes'), msg='Node setup.')
+    request_or_raise(url=BASE_NODE_URL.format(ip=node_ip, db='_metadata'), msg='Node setup.')
 
 
 @retry(stop_max_attempt_number=5, wait_fixed=2000)
 def create_admin_user(name, node_ip, admin, user, password):
     # Setup admin user
     url = 'http://{}:5984/_node/{}@{}/_config/admins/{}'.format(node_ip, name, node_ip, user)
-    put_or_raise(url, json=password, msg='Node setup - creating admin user.')
+    request_or_raise(url, json=password, msg='Node setup - creating admin user.')
 
 
 @retry(stop_max_attempt_number=5, wait_fixed=2000)
@@ -137,12 +137,14 @@ def advanced_configuration(name, node_ip, admin, password, user):
     # Bind to external/ docker container address
     url = 'http://{}:{}@{}:5984/_node/{}@{}/_config/chttpd/bind_address'.format(admin, password, node_ip,
                                                                                 name, node_ip)
-    put_or_raise(url, json='0.0.0.0', msg='Node setup - enable external access.')
+    request_or_raise(url, json='0.0.0.0', msg='Node setup - enable external access.')
 
 
-def put_or_raise(url, json=None, msg=None):
+def request_or_raise(url, json=None, msg=None, method='put'):
     print("{} Request PUT {}".format(msg, url))
-    response = requests.put(url=url, json=json)
+    if not hasattr(requests, method):
+        raise RuntimeError('Unsupported request method. Must be one of GET, POST, PUT or DELETE.')
+    response = getattr(requests, method)(url=url, json=json)
     if response.status_code not in [httplib.CREATED, httplib.OK]:
         raise RuntimeError('Request {} failed with code {}.'.format(url, response.status_code))
     return response
