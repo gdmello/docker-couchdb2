@@ -25,9 +25,10 @@ COUCHDB_CLUSTER_SETUP = {
 
 def start(num_nodes, admin, password):
     try:
+        print 'Network setup.'
         subprocess.check_output(DOCKER_CREATE_NETWORK, shell=True)
     except subprocess.CalledProcessError:
-        print ("network exists - ignoring.")
+        print ('Network exists - ignoring.')
 
     nodes = []
     for node_num in range(2, int(num_nodes) + 2):
@@ -59,13 +60,13 @@ def start(num_nodes, admin, password):
         advanced_configuration(node.name, node.ip, admin, password, "admin")
 
     master_node_ip = nodes[0].ip
-    print ("Enabling cluster")
     enable_cluster(master_node_ip, admin, password)
     add_nodes_to_cluster(master_node_ip, nodes, admin, password)
 
-    response = requests.post(
-        url=COUCHDB_CLUSTER_SETUP['url'].format(user=admin, password=password, ip=master_node_ip),
-        json={"action": "finish_cluster"})
+    response = requests.post(url=COUCHDB_CLUSTER_SETUP['url'].format(user=admin, password=password, ip=master_node_ip),
+                             json={"action": "finish_cluster"})
+    print('Cluster setup: complete {}'.format(response.text))
+    print('Success')
 
 
 def add_nodes_to_cluster(master_node_ip, node_ips, admin, password):
@@ -88,6 +89,7 @@ def make_node_config(node_dir, node_ip, name):
     if os.path.exists(node_dir_path):
         cmd = 'docker run -v {}:/node_dir --entrypoint="/bin/sh" --rm alpine -c "rm -rf /node_dir/{}" '.format(
             os.path.abspath(os.curdir), node_dir)
+        print('Removing existing node config. {}'.format(cmd))
         subprocess.check_output(cmd, shell=True)
     node_config_path = os.path.abspath(os.path.join(node_dir_path, 'config'))
     shutil.copytree(config_path, node_config_path)
@@ -103,7 +105,7 @@ def make_node_config(node_dir, node_ip, name):
 
 def enable_cluster(master_node_ip, admin, password):
     cluster_url = COUCHDB_CLUSTER_SETUP['url'].format(user=admin, password=password, ip=master_node_ip)
-    print (cluster_url)
+    print ('Cluster setup. {}'.format(cluster_url))
     response = requests.post(
         url=cluster_url,
         json={"action": "enable_cluster",
@@ -145,5 +147,6 @@ def request_or_raise(url, json=None, msg=None, method='put'):
         raise RuntimeError('Unsupported request method. Must be one of GET, POST, PUT or DELETE.')
     response = getattr(requests, method)(url=url, json=json)
     if response.status_code not in [httplib.CREATED, httplib.OK]:
-        raise RuntimeError('Request {} failed with code {}.'.format(url, response.status_code))
+        raise RuntimeError(
+            'Request {} failed with code {}, message {}.'.format(url, response.status_code, response.text))
     return response
