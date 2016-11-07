@@ -43,8 +43,6 @@ def start(num_nodes, admin, password):
                 subprocess.check_output('docker rm -f {}'.format(container_id), shell=True)
         except:
             pass  # Ignore exceptions for now.
-    import ipdb
-    ipdb.set_trace()
     for node in nodes:
         node_dir_path, node_config_path = make_node_config(node.dir, node.ip, node.name)
         start_cmd = DOCKER_START_NODE.format(cluster_network=DOCKER_NETWORK,
@@ -61,8 +59,6 @@ def start(num_nodes, admin, password):
         advanced_configuration(node.name, node.ip, admin, password, "admin")
 
     master_node_ip = nodes[0].ip
-    # import ipdb
-    # ipdb.set_trace()
     print ("Enabling cluster")
     enable_cluster(master_node_ip, admin, password)
     add_nodes_to_cluster(master_node_ip, nodes, admin, password)
