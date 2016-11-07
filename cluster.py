@@ -57,7 +57,7 @@ def start(num_nodes, admin, password):
         print ("Initializing node")
         initial_configuration(node.ip)
         create_admin_user(node.name, node.ip, admin, "admin", password)
-        advanced_configuration(node.name, node.ip, admin, password, "admin")
+        # advanced_configuration(node.name, node.ip, admin, password, "admin")
 
     master_node_ip = nodes[0].ip
     enable_cluster(master_node_ip, admin, password)
@@ -69,17 +69,15 @@ def start(num_nodes, admin, password):
     print('Success')
 
 
-def add_nodes_to_cluster(master_node_ip, node_ips, admin, password):
-    for node in node_ips[1:]:
-        url = 'http://{user}:{password}@{master_node_ip}:5984/_cluster_setup'.format(user=admin,
-                                                                                     password=password,
-                                                                                     master_node_ip=master_node_ip)
+def add_nodes_to_cluster(master_node_ip, nodes, admin, password):
+    for node in nodes[1:]:
+        url = 'http://{user}:{password}@{master_node_ip}:5986/_nodes/{node_name}@{node_ip}'.format(user=admin,
+                                                                                                   password=password,
+                                                                                                   master_node_ip=master_node_ip,
+                                                                                                   node_name=node.name,
+                                                                                                   node_ip=node.ip)
         print ("Adding node {} to cluster {}".format(node.ip, url))
-        response = requests.post(url=url, json={"action": "add_node",
-                                                "host": node.ip,
-                                                "username": admin,
-                                                "password": password
-                                                })
+        response = requests.put(url=url, data='{}')
         print (response.text)
 
 
