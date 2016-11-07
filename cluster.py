@@ -127,7 +127,6 @@ def initial_configuration(node_ip):
 
 @retry(stop_max_attempt_number=5, wait_fixed=2000)
 def create_admin_user(name, node_ip, admin, user, password):
-    # Setup admin user
     url = 'http://{}:5984/_node/{}@{}/_config/admins/{}'.format(node_ip, name, node_ip, user)
     request_or_raise(url, json=password, msg='Node setup - creating admin user.')
 
