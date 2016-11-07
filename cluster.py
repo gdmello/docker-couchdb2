@@ -43,7 +43,8 @@ def start(num_nodes, admin, password):
                 subprocess.check_output('docker rm -f {}'.format(container_id), shell=True)
         except:
             pass  # Ignore exceptions for now.
-
+    import ipdb
+    ipdb.set_trace()
     for node in nodes:
         node_dir_path, node_config_path = make_node_config(node.dir, node.ip, node.name)
         start_cmd = DOCKER_START_NODE.format(cluster_network=DOCKER_NETWORK,
@@ -59,11 +60,12 @@ def start(num_nodes, admin, password):
         create_admin_user(node.name, node.ip, admin, "admin", password)
         advanced_configuration(node.name, node.ip, admin, password, "admin")
 
-    master_node_ip = nodes[0]
+    master_node_ip = nodes[0].ip
+    # import ipdb
+    # ipdb.set_trace()
     print ("Enabling cluster")
-
     enable_cluster(master_node_ip, admin, password)
-    add_nodes_to_cluster(master_node_ip, nodes)
+    add_nodes_to_cluster(master_node_ip, nodes, admin, password)
 
     response = requests.post(
         url=COUCHDB_CLUSTER_SETUP['url'].format(user=admin, password=password, ip=master_node_ip),
@@ -71,13 +73,13 @@ def start(num_nodes, admin, password):
 
 
 def add_nodes_to_cluster(master_node_ip, node_ips, admin, password):
-    for ip in node_ips[1:]:
+    for node in node_ips[1:]:
         url = 'http://{user}:{password}@{master_node_ip}:5984/_cluster_setup'.format(user=admin,
                                                                                      password=password,
                                                                                      master_node_ip=master_node_ip)
-        print ("Adding node {} to cluster {}".format(ip, url))
+        print ("Adding node {} to cluster {}".format(node.ip, url))
         response = requests.post(url=url, json={"action": "add_node",
-                                                "host": ip,
+                                                "host": node.ip,
                                                 "username": admin,
                                                 "password": password
                                                 })
