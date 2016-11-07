@@ -25,7 +25,7 @@ COUCHDB_CLUSTER_SETUP = {
 
 def start(num_nodes, admin, password):
     try:
-        print 'Network setup.'
+        print('Network setup.')
         subprocess.check_output(DOCKER_CREATE_NETWORK, shell=True)
     except subprocess.CalledProcessError:
         print ('Network exists - ignoring.')
@@ -51,7 +51,7 @@ def start(num_nodes, admin, password):
                                              node_data_dir=data_dir_path,
                                              node_config_dir=node_config_path,
                                              node_name=node.name)
-        print start_cmd
+        print(start_cmd)
         subprocess.check_output(start_cmd, shell=True)
 
         print ("Initializing node")
@@ -92,8 +92,6 @@ def make_node_config(node_dir, node_ip, name):
             os.path.abspath(os.curdir), node_dir)
         print('Removing existing node config. {}'.format(cmd))
         subprocess.check_output(cmd, shell=True)
-    # import ipdb
-    # ipdb.set_trace()
     shutil.copytree(local_config_path, node_config_path)
     with open(os.path.join(node_config_path, 'vm.args'), 'r+') as f:
         vm_config = f.read()
