@@ -57,7 +57,7 @@ def start(num_nodes, admin, password):
         print ("Initializing node")
         initial_configuration(node.ip)
         create_admin_user(node.name, node.ip, admin, "admin", password)
-        # advanced_configuration(node.name, node.ip, admin, password, "admin")
+        advanced_configuration(node.name, node.ip, admin, password, "admin")
 
     master_node_ip = nodes[0].ip
     enable_cluster(master_node_ip, admin, password)
